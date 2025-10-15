@@ -1,6 +1,7 @@
-from typing import Dict, Any, Optional, Protocol
+from typing import Dict, Any, Optional, Protocol, List
 from abc import ABC, abstractmethod
 from vector_store import VectorStore, SearchResults
+from models import SourceLink
 
 
 class Tool(ABC):
@@ -19,10 +20,10 @@ class Tool(ABC):
 
 class CourseSearchTool(Tool):
     """Tool for searching course content with semantic course name matching"""
-    
+
     def __init__(self, vector_store: VectorStore):
         self.store = vector_store
-        self.last_sources = []  # Track sources from last search
+        self.last_sources = []  # Track sources from last search (list of SourceLink objects)
     
     def get_tool_definition(self) -> Dict[str, Any]:
         """Return Anthropic tool definition for this tool"""
@@ -88,30 +89,117 @@ class CourseSearchTool(Tool):
     def _format_results(self, results: SearchResults) -> str:
         """Format search results with course and lesson context"""
         formatted = []
-        sources = []  # Track sources for the UI
-        
+        sources_with_metadata = []  # Store (SourceLink, metadata) for sorting
+
+        # First pass: collect all sources with their metadata
         for doc, meta in zip(results.documents, results.metadata):
             course_title = meta.get('course_title', 'unknown')
             lesson_num = meta.get('lesson_number')
-            
+
             # Build context header
             header = f"[{course_title}"
             if lesson_num is not None:
                 header += f" - Lesson {lesson_num}"
             header += "]"
-            
-            # Track source for the UI
-            source = course_title
+
+            # Build source text
+            source_text = course_title
             if lesson_num is not None:
-                source += f" - Lesson {lesson_num}"
-            sources.append(source)
-            
+                source_text += f" - Lesson {lesson_num}"
+
+            # Get lesson link from vector store if lesson number exists
+            lesson_link = None
+            if lesson_num is not None:
+                lesson_link = self.store.get_lesson_link(course_title, lesson_num)
+
+            # Create SourceLink object and store with metadata
+            source_link = SourceLink(text=source_text, link=lesson_link)
+            sources_with_metadata.append((source_link, course_title, lesson_num if lesson_num is not None else float('inf')))
+
             formatted.append(f"{header}\n{doc}")
-        
-        # Store sources for retrieval
-        self.last_sources = sources
-        
+
+        # Sort sources by course title, then by lesson number (ascending)
+        sources_with_metadata.sort(key=lambda x: (x[1], x[2]))
+
+        # Extract just the SourceLink objects after sorting
+        sorted_sources = [source for source, _, _ in sources_with_metadata]
+
+        # Store sorted sources for retrieval
+        self.last_sources = sorted_sources
+
         return "\n\n".join(formatted)
+
+
+class CourseOutlineTool(Tool):
+    """Tool for retrieving course outline with lesson structure"""
+
+    def __init__(self, vector_store: VectorStore):
+        self.store = vector_store
+
+    def get_tool_definition(self) -> Dict[str, Any]:
+        """Return Anthropic tool definition for this tool"""
+        return {
+            "name": "get_course_outline",
+            "description": "Get the complete outline and structure of a course including all lessons",
+            "input_schema": {
+                "type": "object",
+                "properties": {
+                    "course_name": {
+                        "type": "string",
+                        "description": "Course title (partial matches work, e.g. 'MCP', 'Prompt Caching')"
+                    }
+                },
+                "required": ["course_name"]
+            }
+        }
+
+    def execute(self, course_name: str) -> str:
+        """
+        Execute the outline retrieval tool.
+
+        Args:
+            course_name: Course name to get outline for
+
+        Returns:
+            Formatted course outline or error message
+        """
+        # Get course outline from vector store
+        outline = self.store.get_course_outline(course_name)
+
+        # Handle course not found
+        if not outline:
+            return f"No course found matching '{course_name}'."
+
+        # Format and return the outline
+        return self._format_outline(outline)
+
+    def _format_outline(self, outline: Dict[str, Any]) -> str:
+        """Format course outline for display"""
+        formatted = []
+
+        # Course title
+        formatted.append(f"Course: {outline['title']}")
+
+        # Course link if available
+        if outline.get('course_link'):
+            formatted.append(f"Link: {outline['course_link']}")
+
+        # Instructor if available
+        if outline.get('instructor'):
+            formatted.append(f"Instructor: {outline['instructor']}")
+
+        # Lessons
+        lessons = outline.get('lessons', [])
+        if lessons:
+            formatted.append(f"\nLessons ({len(lessons)} total):")
+            for lesson in lessons:
+                lesson_line = f"  Lesson {lesson['lesson_number']}: {lesson['lesson_title']}"
+                formatted.append(lesson_line)
+        else:
+            formatted.append("\nNo lessons found.")
+
+        return "\n".join(formatted)
+
 
 class ToolManager:
     """Manages available tools for the AI"""
@@ -139,7 +227,7 @@ class ToolManager:
         
         return self.tools[tool_name].execute(**kwargs)
     
-    def get_last_sources(self) -> list:
+    def get_last_sources(self) -> List[SourceLink]:
         """Get sources from the last search operation"""
         # Check all tools for last_sources attribute
         for tool in self.tools.values():
