@@ -1,8 +1,10 @@
 """Tests for search tools functionality"""
-import pytest
+
 from unittest.mock import Mock
-from search_tools import CourseSearchTool, CourseOutlineTool, ToolManager
+
+import pytest
 from models import SourceLink
+from search_tools import CourseOutlineTool, CourseSearchTool, ToolManager
 from vector_store import SearchResults
 
 
@@ -35,9 +37,7 @@ class TestCourseSearchTool:
         assert "introduction to testing" in result.lower()
         # Should have been called with correct parameters
         mock_vector_store.search.assert_called_once_with(
-            query="test query",
-            course_name=None,
-            lesson_number=None
+            query="test query", course_name=None, lesson_number=None
         )
 
     def test_execute_with_course_filter(self, mock_vector_store, sample_search_results):
@@ -48,9 +48,7 @@ class TestCourseSearchTool:
         result = tool.execute(query="test query", course_name="Test Course")
 
         mock_vector_store.search.assert_called_once_with(
-            query="test query",
-            course_name="Test Course",
-            lesson_number=None
+            query="test query", course_name="Test Course", lesson_number=None
         )
 
     def test_execute_with_lesson_filter(self, mock_vector_store, sample_search_results):
@@ -61,12 +59,12 @@ class TestCourseSearchTool:
         result = tool.execute(query="test query", lesson_number=1)
 
         mock_vector_store.search.assert_called_once_with(
-            query="test query",
-            course_name=None,
-            lesson_number=1
+            query="test query", course_name=None, lesson_number=1
         )
 
-    def test_execute_handles_empty_results(self, mock_vector_store, empty_search_results):
+    def test_execute_handles_empty_results(
+        self, mock_vector_store, empty_search_results
+    ):
         """Test execute() handles empty results gracefully"""
         tool = CourseSearchTool(mock_vector_store)
         mock_vector_store.search.return_value = empty_search_results
@@ -75,22 +73,24 @@ class TestCourseSearchTool:
 
         assert "No relevant content found" in result
 
-    def test_execute_handles_empty_results_with_filters(self, mock_vector_store, empty_search_results):
+    def test_execute_handles_empty_results_with_filters(
+        self, mock_vector_store, empty_search_results
+    ):
         """Test execute() includes filter info in empty results message"""
         tool = CourseSearchTool(mock_vector_store)
         mock_vector_store.search.return_value = empty_search_results
 
         result = tool.execute(
-            query="test",
-            course_name="Nonexistent Course",
-            lesson_number=99
+            query="test", course_name="Nonexistent Course", lesson_number=99
         )
 
         assert "No relevant content found" in result
         assert "Nonexistent Course" in result
         assert "lesson 99" in result
 
-    def test_execute_handles_error_results(self, mock_vector_store, error_search_results):
+    def test_execute_handles_error_results(
+        self, mock_vector_store, error_search_results
+    ):
         """Test execute() returns error message when search fails"""
         tool = CourseSearchTool(mock_vector_store)
         mock_vector_store.search.return_value = error_search_results
@@ -100,7 +100,9 @@ class TestCourseSearchTool:
         assert "Test error" in result
         assert "Search failed" in result
 
-    def test_format_results_creates_source_links(self, mock_vector_store, sample_search_results):
+    def test_format_results_creates_source_links(
+        self, mock_vector_store, sample_search_results
+    ):
         """Test that _format_results() creates SourceLink objects"""
         tool = CourseSearchTool(mock_vector_store)
         mock_vector_store.get_lesson_link.return_value = "https://example.com/lesson-0"
@@ -116,7 +118,9 @@ class TestCourseSearchTool:
         assert first_source.text is not None
         assert "Test Course" in first_source.text
 
-    def test_format_results_includes_lesson_links(self, mock_vector_store, sample_search_results):
+    def test_format_results_includes_lesson_links(
+        self, mock_vector_store, sample_search_results
+    ):
         """Test that _format_results() includes lesson links when available"""
         tool = CourseSearchTool(mock_vector_store)
         lesson_link = "https://example.com/lesson-0"
@@ -139,9 +143,9 @@ class TestCourseSearchTool:
             metadata=[
                 {"course_title": "B Course", "lesson_number": 2},
                 {"course_title": "A Course", "lesson_number": 1},
-                {"course_title": "A Course", "lesson_number": 0}
+                {"course_title": "A Course", "lesson_number": 0},
             ],
-            distances=[0.1, 0.2, 0.3]
+            distances=[0.1, 0.2, 0.3],
         )
 
         tool = CourseSearchTool(mock_vector_store)
@@ -197,17 +201,14 @@ class TestCourseOutlineTool:
         tool = CourseOutlineTool(mock_vector_store)
 
         outline_data = {
-            'title': sample_course.title,
-            'course_link': sample_course.course_link,
-            'instructor': sample_course.instructor,
-            'lessons': [
-                {
-                    'lesson_number': lesson.lesson_number,
-                    'lesson_title': lesson.title
-                }
+            "title": sample_course.title,
+            "course_link": sample_course.course_link,
+            "instructor": sample_course.instructor,
+            "lessons": [
+                {"lesson_number": lesson.lesson_number, "lesson_title": lesson.title}
                 for lesson in sample_course.lessons
             ],
-            'lesson_count': len(sample_course.lessons)
+            "lesson_count": len(sample_course.lessons),
         }
 
         formatted = tool._format_outline(outline_data)

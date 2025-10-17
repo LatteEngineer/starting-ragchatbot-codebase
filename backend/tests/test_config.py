@@ -1,4 +1,5 @@
 """Tests for configuration validation"""
+
 import pytest
 from config import config
 
@@ -21,9 +22,9 @@ class TestConfigValidation:
 
     def test_max_results_is_reasonable(self):
         """MAX_RESULTS should be a reasonable number (typically 1-20)"""
-        assert 1 <= config.MAX_RESULTS <= 20, (
-            f"MAX_RESULTS should be between 1 and 20, got {config.MAX_RESULTS}"
-        )
+        assert (
+            1 <= config.MAX_RESULTS <= 20
+        ), f"MAX_RESULTS should be between 1 and 20, got {config.MAX_RESULTS}"
 
     def test_chunk_size_is_positive(self):
         """CHUNK_SIZE must be greater than 0"""
@@ -31,9 +32,9 @@ class TestConfigValidation:
 
     def test_chunk_size_is_reasonable(self):
         """CHUNK_SIZE should be reasonable (typically 100-2000 characters)"""
-        assert 100 <= config.CHUNK_SIZE <= 2000, (
-            f"CHUNK_SIZE should be between 100 and 2000, got {config.CHUNK_SIZE}"
-        )
+        assert (
+            100 <= config.CHUNK_SIZE <= 2000
+        ), f"CHUNK_SIZE should be between 100 and 2000, got {config.CHUNK_SIZE}"
 
     def test_chunk_overlap_is_non_negative(self):
         """CHUNK_OVERLAP must be non-negative"""
@@ -52,9 +53,9 @@ class TestConfigValidation:
 
     def test_max_history_is_reasonable(self):
         """MAX_HISTORY should be reasonable (typically 0-10)"""
-        assert config.MAX_HISTORY <= 10, (
-            f"MAX_HISTORY should be <= 10, got {config.MAX_HISTORY}"
-        )
+        assert (
+            config.MAX_HISTORY <= 10
+        ), f"MAX_HISTORY should be <= 10, got {config.MAX_HISTORY}"
 
     def test_anthropic_api_key_is_set(self):
         """ANTHROPIC_API_KEY should be configured"""
@@ -77,6 +78,6 @@ class TestConfigValidation:
         """ANTHROPIC_MODEL should be a valid Claude model"""
         assert config.ANTHROPIC_MODEL, "ANTHROPIC_MODEL must be set"
         # Check it's a reasonable model name
-        assert "claude" in config.ANTHROPIC_MODEL.lower(), (
-            f"ANTHROPIC_MODEL should contain 'claude', got {config.ANTHROPIC_MODEL}"
-        )
+        assert (
+            "claude" in config.ANTHROPIC_MODEL.lower()
+        ), f"ANTHROPIC_MODEL should contain 'claude', got {config.ANTHROPIC_MODEL}"

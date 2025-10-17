@@ -1,8 +1,10 @@
 """Pytest configuration and fixtures for RAG system tests"""
+
+from typing import Any, Dict, List
+from unittest.mock import MagicMock, Mock
+
 import pytest
-from unittest.mock import Mock, MagicMock
-from typing import List, Dict, Any
-from models import Course, Lesson, CourseChunk, SourceLink
+from models import Course, CourseChunk, Lesson, SourceLink
 from vector_store import SearchResults
 
 
@@ -17,19 +19,19 @@ def sample_course():
             Lesson(
                 lesson_number=0,
                 title="Getting Started with Tests",
-                lesson_link="https://example.com/lesson-0"
+                lesson_link="https://example.com/lesson-0",
             ),
             Lesson(
                 lesson_number=1,
                 title="Writing Unit Tests",
-                lesson_link="https://example.com/lesson-1"
+                lesson_link="https://example.com/lesson-1",
             ),
             Lesson(
                 lesson_number=2,
                 title="Integration Testing",
-                lesson_link="https://example.com/lesson-2"
-            )
-        ]
+                lesson_link="https://example.com/lesson-2",
+            ),
+        ],
     )
 
 
@@ -41,20 +43,20 @@ def sample_chunks(sample_course):
             content="This is the introduction to testing. Testing is important for code quality.",
             course_title=sample_course.title,
             lesson_number=0,
-            chunk_index=0
+            chunk_index=0,
         ),
         CourseChunk(
             content="Unit tests verify individual components work correctly. Use pytest for Python.",
             course_title=sample_course.title,
             lesson_number=1,
-            chunk_index=1
+            chunk_index=1,
         ),
         CourseChunk(
             content="Integration tests verify components work together. End-to-end testing is crucial.",
             course_title=sample_course.title,
             lesson_number=2,
-            chunk_index=2
-        )
+            chunk_index=2,
+        ),
     ]
 
 
@@ -67,28 +69,23 @@ def sample_search_results(sample_chunks):
             {
                 "course_title": sample_chunks[0].course_title,
                 "lesson_number": sample_chunks[0].lesson_number,
-                "chunk_index": 0
+                "chunk_index": 0,
             },
             {
                 "course_title": sample_chunks[1].course_title,
                 "lesson_number": sample_chunks[1].lesson_number,
-                "chunk_index": 1
-            }
+                "chunk_index": 1,
+            },
         ],
         distances=[0.1, 0.2],
-        error=None
+        error=None,
     )
 
 
 @pytest.fixture
 def empty_search_results():
     """Create empty SearchResults for testing"""
-    return SearchResults(
-        documents=[],
-        metadata=[],
-        distances=[],
-        error=None
-    )
+    return SearchResults(documents=[], metadata=[], distances=[], error=None)
 
 
 @pytest.fixture
@@ -104,20 +101,22 @@ def mock_vector_store(sample_search_results, sample_course):
     mock.search = Mock(return_value=sample_search_results)
     mock.get_lesson_link = Mock(return_value="https://example.com/lesson-0")
     mock.get_course_link = Mock(return_value="https://example.com/course")
-    mock.get_course_outline = Mock(return_value={
-        'title': sample_course.title,
-        'course_link': sample_course.course_link,
-        'instructor': sample_course.instructor,
-        'lessons': [
-            {
-                'lesson_number': lesson.lesson_number,
-                'lesson_title': lesson.title,
-                'lesson_link': lesson.lesson_link
-            }
-            for lesson in sample_course.lessons
-        ],
-        'lesson_count': len(sample_course.lessons)
-    })
+    mock.get_course_outline = Mock(
+        return_value={
+            "title": sample_course.title,
+            "course_link": sample_course.course_link,
+            "instructor": sample_course.instructor,
+            "lessons": [
+                {
+                    "lesson_number": lesson.lesson_number,
+                    "lesson_title": lesson.title,
+                    "lesson_link": lesson.lesson_link,
+                }
+                for lesson in sample_course.lessons
+            ],
+            "lesson_count": len(sample_course.lessons),
+        }
+    )
     mock.max_results = 5
     return mock
 
@@ -158,15 +157,16 @@ def mock_anthropic_final_response():
 
 
 @pytest.fixture
-def mock_anthropic_client(mock_anthropic_response_no_tools, mock_anthropic_final_response):
+def mock_anthropic_client(
+    mock_anthropic_response_no_tools, mock_anthropic_final_response
+):
     """Create a mock Anthropic client"""
     mock_client = Mock()
     mock_client.messages = Mock()
     # Default to no-tools response, can be overridden in tests
-    mock_client.messages.create = Mock(side_effect=[
-        mock_anthropic_response_no_tools,
-        mock_anthropic_final_response
-    ])
+    mock_client.messages.create = Mock(
+        side_effect=[mock_anthropic_response_no_tools, mock_anthropic_final_response]
+    )
     return mock_client
 
 
@@ -174,23 +174,29 @@ def mock_anthropic_client(mock_anthropic_response_no_tools, mock_anthropic_final
 def mock_tool_manager():
     """Create a mock ToolManager"""
     mock = Mock()
-    mock.get_tool_definitions = Mock(return_value=[
-        {
-            "name": "search_course_content",
-            "description": "Search course materials",
-            "input_schema": {
-                "type": "object",
-                "properties": {
-                    "query": {"type": "string", "description": "Search query"}
+    mock.get_tool_definitions = Mock(
+        return_value=[
+            {
+                "name": "search_course_content",
+                "description": "Search course materials",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "query": {"type": "string", "description": "Search query"}
+                    },
+                    "required": ["query"],
                 },
-                "required": ["query"]
             }
-        }
-    ])
+        ]
+    )
     mock.execute_tool = Mock(return_value="[Test Course]\nTest search result content")
-    mock.get_last_sources = Mock(return_value=[
-        SourceLink(text="Test Course - Lesson 0", link="https://example.com/lesson-0")
-    ])
+    mock.get_last_sources = Mock(
+        return_value=[
+            SourceLink(
+                text="Test Course - Lesson 0", link="https://example.com/lesson-0"
+            )
+        ]
+    )
     mock.reset_sources = Mock()
     return mock
 
